@@ -1,13 +1,26 @@
 ## app.R ##
 ##prueba git##
+##librerias##
 library(shiny)
 library(shinydashboard)
 library(ggplot2)
+library(sf)
+library(leaflet)
+
+
+shp_url <- "mapas/colonia_Satelite 1.shp"
+
+# Leer el shapefile 
+mapa <- st_read(shp_url)
+
+# Ver los primeros registros del shapefile
+head(mapa)
 
 ui <- dashboardPage(
   dashboardHeader(title = "DashBoard Col. Satelite"),
   dashboardSidebar( 
     sidebarMenu(
+      ##MAPAS
       menuItem("Mapas", tabName = "histogramas_mapas", icon = icon("map")),
       
       
@@ -16,7 +29,7 @@ ui <- dashboardPage(
                   choices = c("Mapa de Calor", "Mapa de Puntos", "Mapa de Líneas"),
                   selected = "Mapa de Calor"),
       
-      
+      ##GRAFICAS
       menuItem("Graficas", tabName = "histo", icon= icon("chart-bar")),
       
       
@@ -37,7 +50,9 @@ ui <- dashboardPage(
               solidHeader = TRUE,
               status = "primary",
               # texto dde salida
-              textOutput("Mapa_Seleccionado")
+              textOutput("Mapa_Seleccionado"),
+              # Salida para mostrar el mapa
+              leafletOutput("mapa")
             )
     ),
     
@@ -66,6 +81,25 @@ server <- function(input, output) {
   output$Grafica_Seleccionada <- renderText({
     paste("Tipo de gráfico seleccionado:", input$graph_option)
   })
+
+
+# Renderizar el mapa según la opción seleccionada
+output$mapa <- renderLeaflet({
+  # Inicializar el mapa con la capa base
+  leaflet(data = mapa) %>%
+    addTiles() %>%
+    {
+      if (input$map_option == "Mapa de Calor") {
+        . %>% addHeatmap(lng = ~st_coordinates(mapa)[, 1], lat = ~st_coordinates(mapa)[, 2], intensity = 1)
+      } else if (input$map_option == "Mapa de Puntos") {
+        . %>% addCircleMarkers(lng = ~st_coordinates(mapa)[, 1], lat = ~st_coordinates(mapa)[, 2])
+      } else if (input$map_option == "Mapa de Líneas") {
+        . %>% addPolylines(lng = ~st_coordinates(mapa)[, 1], lat = ~st_coordinates(mapa)[, 2])
+      } else {
+        .
+      }
+    }
+})
 }
 
 shinyApp(ui, server)
