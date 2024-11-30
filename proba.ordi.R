@@ -26,8 +26,8 @@ ui <- dashboardPage(
       
       # Menú desplegable para escoger el tipo de mapa
       selectInput("map_option", "Elige el tipo de mapa:",
-                  choices = c("Mapa de Calor", "Mapa de Puntos", "Mapa de Líneas"),
-                  selected = "Mapa de Calor"),
+                  choices = c("Poblacion total", "poblacion masculina", "poblacion femenina"),
+                  selected = "Poblacion total"),
       
       ##GRAFICAS
       menuItem("Graficas", tabName = "histo", icon= icon("chart-bar")),
@@ -36,8 +36,8 @@ ui <- dashboardPage(
       
       # Menú de radio buttons para escoger el tipo de gráfico
       selectInput("graph_option", "Elige el tipo de gráfico:",
-                   choices = c("Histograma", "Gráfico de Barras", "Gráfico de Dispersión"),
-                   selected = "Histograma")
+                   choices = c("poblacion total", "poblacion masculina", "poblacion femenina"),
+                   selected = "poblacion total")
       
     )
   ),
