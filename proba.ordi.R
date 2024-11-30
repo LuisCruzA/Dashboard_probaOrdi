@@ -83,23 +83,7 @@ server <- function(input, output) {
   })
 
 
-# Renderizar el mapa según la opción seleccionada
-output$mapa <- renderLeaflet({
-  # Inicializar el mapa con la capa base
-  leaflet(data = mapa) %>%
-    addTiles() %>%
-    {
-      if (input$map_option == "Mapa de Calor") {
-        . %>% addHeatmap(lng = ~st_coordinates(mapa)[, 1], lat = ~st_coordinates(mapa)[, 2], intensity = 1)
-      } else if (input$map_option == "Mapa de Puntos") {
-        . %>% addCircleMarkers(lng = ~st_coordinates(mapa)[, 1], lat = ~st_coordinates(mapa)[, 2])
-      } else if (input$map_option == "Mapa de Líneas") {
-        . %>% addPolylines(lng = ~st_coordinates(mapa)[, 1], lat = ~st_coordinates(mapa)[, 2])
-      } else {
-        .
-      }
-    }
-})
+
 }
 
 shinyApp(ui, server)
