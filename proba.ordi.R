@@ -1,6 +1,6 @@
 ## app.R ##
-##prueba git##
-##librerias##
+## prueba git ##
+## librerías ##
 library(shiny)
 library(shinydashboard)
 library(ggplot2)
@@ -8,10 +8,9 @@ library(sf)
 library(leaflet)
 library(dplyr)
 library(readxl)
-
+library(tidyr)
 
 shp_url <- "mapas/colonia_Satelite 1.shp"
-
 datoscol <- "excel/gdatosdashboard-2.xlsx"
 
 # Leer el shapefile 
@@ -21,7 +20,7 @@ poblacion <- read_excel(datoscol)
 # Ver los primeros registros del shapefile
 head(mapa)
 
-#unir datos del shp con los datos del excel usando cvgeo
+# Unir datos del shapefile con los datos del Excel usando 'CVEGEO'
 datos <- poblacion %>% rename(ID = "CVEGEO")
 colonia <- mapa %>% rename(ID = "CVEGEO")
 mapa_completo <- left_join(colonia, datos, by = "ID")
@@ -30,67 +29,79 @@ ui <- dashboardPage(
   dashboardHeader(title = "DashBoard Col. Satelite"),
   dashboardSidebar( 
     sidebarMenu(
-      ##MAPAS
-      menuItem("Mapas", tabName = "histogramas_mapas", icon = icon("map")),
-      
+      ## MAPAS
+      menuItem("Mapas", tabName = "mapas", icon = icon("map")),
       
       # Menú desplegable para escoger el tipo de mapa
       selectInput("map_option", "Elige el tipo de mapa:",
-                  choices = c("Poblacion total", "poblacion masculina", "poblacion femenina"),
-                  selected = "Poblacion total"),
+                  choices = c("Seleccionar" = "", "Poblacion total", "poblacion masculina", "poblacion femenina"),
+                  selected = ""),
       
-      ##GRAFICAS
-      menuItem("Graficas", tabName = "histo", icon= icon("chart-bar")),
-      
-      
+      ## GRAFICAS
+      menuItem("Graficas", tabName = "graficas", icon = icon("chart-bar")),
       
       # Menú de radio buttons para escoger el tipo de gráfico
       selectInput("graph_option", "Elige el tipo de gráfico:",
-                   choices = c("poblacion total", "poblacion masculina", "poblacion femenina"),
-                   selected = "poblacion total")
-      
+                  choices = c("Seleccionar" = "", "poblacion masculina y poblacion femenina"),
+                  selected = "")
     )
   ),
   dashboardBody(
-    # Pestaña de Mapas
-    tabItem(tabName = "histogramas_mapas",
-            box(
-              title = "Opciones de Mapa",
-              width = 12,
-              solidHeader = TRUE,
-              status = "primary",
-              # texto dde salida
-              textOutput("Mapa_Seleccionado"),
-              # Salida para mostrar el mapa
-              leafletOutput("mapa")
-            )
-    ),
+    # Mensaje inicial cuando no se ha hecho ninguna selección
+    textOutput("mensaje_inicial"),
     
-    # Pestaña de Gráficas
-    tabItem(tabName = "histo",
-            box(
-              title = "Opciones de Gráficas",
-              width = 12,
-              solidHeader = TRUE,
-              status = "primary",
-              # texto de salida
-              textOutput("Grafica_Seleccionada")
-            )
+    # Contenido que se actualizará dependiendo de la selección de mapas o gráficos
+    tabItems(
+      tabItem(tabName = "mapas",
+              # Si se elige un mapa, este se mostrará
+              uiOutput("mapaUI")
+      ),
+      
+      tabItem(tabName = "graficas",
+              # Si se elige un gráfico, este se mostrará
+              uiOutput("graficoUI")
+      )
     )
   )
 )
 
-server <- function(input, output) {
-  #se muestra la opcion seleccionada para mapas
-  output$Mapa_Seleccionado <- renderText({
-    paste("Tipo de Mapa Seleccionado: ", input$map_option)
-    
+server <- function(input, output, session) {
+  
+  # Mostrar el mensaje inicial si no se ha seleccionado nada
+  output$mensaje_inicial <- renderText({
+    if(input$map_option == "" && input$graph_option == "") {
+      return("Dashboard Colonia Satélite")
+    }
   })
   
-  # Mostrar la opción seleccionada para gráficos
-  output$Grafica_Seleccionada <- renderText({
-    paste("Tipo de gráfico seleccionado:", input$graph_option)
+  # Renderizar el mapa dependiendo de la opción seleccionada
+  output$mapaUI <- renderUI({
+    # Mostrar el mapa solo si se ha seleccionado una opción válida
+    req(input$map_option != "")
+    
+    # Mostrar el tipo de mapa seleccionado
+    output$Mapa_Seleccionado <- renderText({
+      paste("Tipo de Mapa Seleccionado: ", input$map_option)
+    })
+    
+    # Renderizar el mapa de calor
+    leafletOutput("mapa")
   })
+  
+  # Renderizar la gráfica dependiendo de la opción seleccionada
+  output$graficoUI <- renderUI({
+    # Mostrar el gráfico solo si se ha seleccionado una opción válida
+    req(input$graph_option != "")
+    
+    # Mostrar el tipo de gráfico seleccionado
+    output$Grafica_Seleccionada <- renderText({
+      paste("Tipo de gráfico seleccionado:", input$graph_option)
+    })
+    
+    # Mostrar el gráfico de barras
+    plotOutput("grafico_barras")
+  })
+  
   # Renderizar el mapa de calor
   output$mapa <- renderLeaflet({
     mapa <- leaflet() %>%
@@ -142,7 +153,23 @@ server <- function(input, output) {
     
     mapa
   })
-
+  
+  # Crear el gráfico de barras comparando la población masculina y femenina
+  output$grafico_barras <- renderPlot({
+    # Solo crear el gráfico si se seleccionó correctamente la opción
+    req(input$graph_option)  # Asegura que input$graph_option no esté vacío
+    # Crear un data frame para la gráfica de barras con pivot_longer
+    df <- mapa_completo %>%
+      select(ID, POBMAS, POBFEM) %>%
+      pivot_longer(cols = c(POBMAS, POBFEM), 
+                   names_to = "sexo", 
+                   values_to = "poblacion")
+    
+    ggplot(df, aes(x = ID, y = poblacion, fill = sexo)) +
+      geom_bar(stat = "identity", position = "dodge") +
+      labs(x = "Colonia", y = "Población", title = "Comparación de Población Masculina vs Femenina") +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1)) # Rotar etiquetas de las colonias
+  })
 }
 
 shinyApp(ui, server)
