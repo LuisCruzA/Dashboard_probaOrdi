@@ -3,6 +3,7 @@
 ## librerías ##
 library(shiny)
 library(shinydashboard)
+library(shinythemes)
 library(ggplot2)
 library(sf)
 library(leaflet)
@@ -34,7 +35,7 @@ ui <- dashboardPage(
       
       # Menú desplegable para escoger el tipo de mapa
       selectInput("map_option", "Elige el tipo de mapa:",
-                  choices = c("Seleccionar" = "", "Poblacion total", "poblacion masculina", "poblacion femenina"),
+                  choices = c("Seleccionar" = "", "Poblacion total", "Poblacion masculina", "Poblacion femenina"),
                   selected = ""),
       
       ## GRAFICAS
@@ -42,11 +43,12 @@ ui <- dashboardPage(
       
       # Menú de radio buttons para escoger el tipo de gráfico
       selectInput("graph_option", "Elige el tipo de gráfico:",
-                  choices = c("Seleccionar" = "", "poblacion masculina y poblacion femenina"),
+                  choices = c("Seleccionar" = "", "Poblacion masculina y femenina", "Servicios a salud","Religion"),
                   selected = "")
     )
   ),
   dashboardBody(
+    
     # Mensaje inicial cuando no se ha hecho ninguna selección
     textOutput("mensaje_inicial"),
     
@@ -121,7 +123,7 @@ server <- function(input, output, session) {
                   opacity = 0.7, 
                   title = "Población Total",
                   position = "bottomright")
-    } else if (input$map_option == "poblacion femenina") {
+    } else if (input$map_option == "Poblacion femenina") {
       mapa <- mapa %>%
         addPolygons(data = mapa_completo, 
                     fillColor = ~colorNumeric("YlOrRd", mapa_completo$POBFEM)(POBFEM), 
@@ -135,7 +137,7 @@ server <- function(input, output, session) {
                   opacity = 0.7, 
                   title = "Población Femenina Total",
                   position = "bottomright")
-    } else if (input$map_option == "poblacion masculina") {
+    } else if (input$map_option == "Poblacion masculina") {
       mapa <- mapa %>%
         addPolygons(data = mapa_completo, 
                     fillColor = ~colorNumeric("YlOrRd", mapa_completo$POBMAS)(POBMAS), 
@@ -158,6 +160,7 @@ server <- function(input, output, session) {
   output$grafico_barras <- renderPlot({
     # Solo crear el gráfico si se seleccionó correctamente la opción
     req(input$graph_option)  # Asegura que input$graph_option no esté vacío
+    if(input$graph_option == "Poblacion masculina y femenina"){
     # Crear un data frame para la gráfica de barras con pivot_longer
     df <- mapa_completo %>%
       select(ID, POBMAS, POBFEM) %>%
@@ -165,11 +168,55 @@ server <- function(input, output, session) {
                    names_to = "sexo", 
                    values_to = "poblacion")
     
+  
+    
     ggplot(df, aes(x = ID, y = poblacion, fill = sexo)) +
       geom_bar(stat = "identity", position = "dodge") +
       labs(x = "Colonia", y = "Población", title = "Comparación de Población Masculina vs Femenina") +
       theme(axis.text.x = element_text(angle = 90, hjust = 1)) # Rotar etiquetas de las colonias
-  })
+   
+   
+    
+    }
+    
+    else if (input$graph_option == "Servicios a salud") {
+      # Crear un data frame para comparar acceso al IMSS y al ISSSTE
+      df <- mapa_completo %>%
+        select(ID, PDER_IMSS, PDER_ISTE) %>%
+        pivot_longer(cols = c(PDER_IMSS, PDER_ISTE), 
+                     names_to = "servicio", 
+                     values_to = "acceso")
+      
+      ggplot(df, aes(x = ID, y = acceso, fill = servicio)) +
+        geom_bar(stat = "identity", position = "dodge") +
+        labs(x = "Colonia", y = "Acceso", title = "Comparación de Acceso a IMSS vs ISSSTE") +
+        scale_fill_manual(values = c("PDER_IMSS" = "lightblue", "PDER_ISTE" = "lightgreen")) + 
+        theme(axis.text.x = element_text(angle = 90, hjust = 1)) # Rotar etiquetas de las colonias
+    }
+    
+    else if (input$graph_option == "Religion") {
+      # Crear un data frame para comparar las religiones por colonia
+      df <- mapa_completo %>%
+        select(ID, PCATOLICA, PRO_CRIEVA, PSIN_RELIG) %>%
+        pivot_longer(cols = c(PCATOLICA, PRO_CRIEVA, PSIN_RELIG), 
+                     names_to = "religion", 
+                     values_to = "poblacion")
+      
+      # Crear un gráfico de dispersión, donde cada punto representa a una religión por colonia
+      ggplot(df, aes(x = as.factor(ID), y = poblacion, color = religion)) +
+        geom_jitter(size = 4, width = 0.1, height = 0) +  # `geom_jitter` dispersa los puntos
+        labs(x = "Colonia", y = "Población", title = "Comparación de Religiones por Colonia") +
+        scale_color_manual(values = c("PCATOLICA" = "blue", 
+                                      "PRO_CRIEVA" = "green", 
+                                      "PSIN_RELIG" = "red")) +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotar las etiquetas de las colonias
+    }
+    
+    
+    
+    })
 }
 
 shinyApp(ui, server)
+
