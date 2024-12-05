@@ -10,6 +10,7 @@ library(leaflet)
 library(dplyr)
 library(readxl)
 library(tidyr)
+library(DT)
 
 shp_url <- "mapas/colonia_Satelite 1.shp"
 datoscol <- "excel/gdatosdashboard-2.xlsx"
@@ -35,7 +36,8 @@ ui <- dashboardPage(
       
       # Menú desplegable para escoger el tipo de mapa
       selectInput("map_option", "Elige el tipo de mapa:",
-                  choices = c("Seleccionar" = "", "Poblacion total", "Poblacion masculina", "Poblacion femenina"),
+                  choices = c("Seleccionar" = "", "Poblacion total", "Poblacion masculina", "Poblacion femenina", "Hombres por cada 100 mujeres","Religión",
+                              "Servicios de Salud"),
                   selected = ""),
       
       ## GRAFICAS
@@ -51,7 +53,7 @@ ui <- dashboardPage(
     
     # Mensaje inicial cuando no se ha hecho ninguna selección
     textOutput("mensaje_inicial"),
-    
+
     # Contenido que se actualizará dependiendo de la selección de mapas o gráficos
     tabItems(
       tabItem(tabName = "mapas",
@@ -76,18 +78,250 @@ server <- function(input, output, session) {
     }
   })
   
+  # Función para calcular la moda
+  calculate_mode <- function(x) {
+    uniq_x <- unique(x)
+    uniq_x[which.max(tabulate(match(x, uniq_x)))]
+  }
+  
   # Renderizar el mapa dependiendo de la opción seleccionada
   output$mapaUI <- renderUI({
     # Mostrar el mapa solo si se ha seleccionado una opción válida
     req(input$map_option != "")
     
+    # Calcular estadísticas para la variable seleccionada
+    selected_variable <- switch(input$map_option,
+                                "Poblacion total" = mapa_completo$POBTOT,
+                                "Poblacion femenina" = mapa_completo$POBFEM,
+                                "Poblacion masculina" = mapa_completo$POBMAS,
+                                "Hombres por cada 100 mujeres" = mapa_completo$REL_H_M,
+                                "Religión" = "",
+                                "Servicios de Salud" = "")
+                                
+    
+    # Calcular estadísticas
+    moda <- calculate_mode(selected_variable)
+    mediana <- median(selected_variable, na.rm = TRUE)
+    media <- mean(selected_variable, na.rm = TRUE)
+    maximo <- max(selected_variable, na.rm = TRUE)
+    minimo <- min(selected_variable, na.rm = TRUE)
+    
+    # Organizar las estadísticas en un data.frame para mostrarlas en una tabla
+    stats_df <- data.frame(
+      Estadística = c("Moda", "Mediana", "Media", "Máximo", "Mínimo"),
+      Valor = c(moda, mediana, media, maximo, minimo)
+    )
+    
+    # Mostrar las estadísticas como una tabla interactiva
+    if(input$map_option != "Religión" && input$map_option != "Servicios de Salud"){
+    output$estadisticas <- DT::renderDataTable({
+      datatable(stats_df, options = list(dom = 't', paging = FALSE, searching = FALSE), 
+                class = "display nowrap", rownames = FALSE)
+    })
+    }
+    
+    else if(input$map_option == "Religión") {
+      # Mostrar estadísticas de las tres religiones
+      stats_catolica <- data.frame(
+        Estadística = c("Moda", "Mediana", "Media", "Máximo", "Mínimo"),
+        Valor = c(calculate_mode(mapa_completo$PCATOLICA),
+                  median(mapa_completo$PCATOLICA, na.rm = TRUE),
+                  mean(mapa_completo$PCATOLICA, na.rm = TRUE),
+                  max(mapa_completo$PCATOLICA, na.rm = TRUE),
+                  min(mapa_completo$PCATOLICA, na.rm = TRUE))
+      )
+      
+      stats_protestante <- data.frame(
+        Estadística = c("Moda", "Mediana", "Media", "Máximo", "Mínimo"),
+        Valor = c(calculate_mode(mapa_completo$PRO_CRIEVA),
+                  median(mapa_completo$PRO_CRIEVA, na.rm = TRUE),
+                  mean(mapa_completo$PRO_CRIEVA, na.rm = TRUE),
+                  max(mapa_completo$PRO_CRIEVA, na.rm = TRUE),
+                  min(mapa_completo$PRO_CRIEVA, na.rm = TRUE))
+      )
+      stats_sin_religion <- data.frame(
+        Estadística = c("Moda", "Mediana", "Media", "Máximo", "Mínimo"),
+        Valor = c(calculate_mode(mapa_completo$PSIN_RELIG),
+                  median(mapa_completo$PSIN_RELIG, na.rm = TRUE),
+                  mean(mapa_completo$PSIN_RELIG, na.rm = TRUE),
+                  max(mapa_completo$PSIN_RELIG, na.rm = TRUE),
+                  min(mapa_completo$PSIN_RELIG, na.rm = TRUE))
+      )
+     
+      
+      # Renderizar las tres tablas de estadísticas
+      output$estadisticas_catolica <- DT::renderDataTable({
+        datatable(stats_catolica, options = list(dom = 't', paging = FALSE, searching = FALSE), 
+                  class = "display nowrap", rownames = FALSE)
+      })
+      
+      output$estadisticas_protestante <- DT::renderDataTable({
+        datatable(stats_protestante, options = list(dom = 't', paging = FALSE, searching = FALSE), 
+                  class = "display nowrap", rownames = FALSE)
+      })
+      
+      output$estadisticas_sin_religion <- DT::renderDataTable({
+        datatable(stats_sin_religion, options = list(dom = 't', paging = FALSE, searching = FALSE), 
+                  class = "display nowrap", rownames = FALSE)
+      })
+      
+    }
+    
+    else if(input$map_option == "Servicios de Salud") {
+      # Mostrar estadísticas de los servicios de salud
+      stats_isste <- data.frame(
+        Estadística = c("Moda", "Mediana", "Media", "Máximo", "Mínimo"),
+        Valor = c(calculate_mode(mapa_completo$PDER_ISTE),
+                  median(mapa_completo$PDER_ISTE, na.rm = TRUE),
+                  mean(mapa_completo$PDER_ISTE, na.rm = TRUE),
+                  max(mapa_completo$PDER_ISTE, na.rm = TRUE),
+                  min(mapa_completo$PDER_ISTE, na.rm = TRUE))
+      )
+      
+      stats_imss <- data.frame(
+        Estadística = c("Moda", "Mediana", "Media", "Máximo", "Mínimo"),
+        Valor = c(calculate_mode(mapa_completo$PDER_IMSS),
+                  median(mapa_completo$PDER_IMSS, na.rm = TRUE),
+                  mean(mapa_completo$PDER_IMSS, na.rm = TRUE),
+                  max(mapa_completo$PDER_IMSS, na.rm = TRUE),
+                  min(mapa_completo$PDER_IMSS, na.rm = TRUE))
+      )
+      stats_sin_servicio <- data.frame(
+        Estadística = c("Moda", "Mediana", "Media", "Máximo", "Mínimo"),
+        Valor = c(calculate_mode(mapa_completo$PSINDER),
+                  median(mapa_completo$PSINDER, na.rm = TRUE),
+                  mean(mapa_completo$PSINDER, na.rm = TRUE),
+                  max(mapa_completo$PSINDER, na.rm = TRUE),
+                  min(mapa_completo$PSINDER, na.rm = TRUE))
+      )
+      
+      
+      # Renderizar las tres tablas de estadísticas
+      output$estadisticas_isste <- DT::renderDataTable({
+        datatable(stats_isste, options = list(dom = 't', paging = FALSE, searching = FALSE), 
+                  class = "display nowrap", rownames = FALSE)
+      })
+      
+      output$estadisticas_imss <- DT::renderDataTable({
+        datatable(stats_imss, options = list(dom = 't', paging = FALSE, searching = FALSE), 
+                  class = "display nowrap", rownames = FALSE)
+      })
+      
+      output$estadisticas_sin_servicio <- DT::renderDataTable({
+        datatable(stats_sin_servicio, options = list(dom = 't', paging = FALSE, searching = FALSE), 
+                  class = "display nowrap", rownames = FALSE)
+      })
+      
+    }
+    
     # Mostrar el tipo de mapa seleccionado
     output$Mapa_Seleccionado <- renderText({
-      paste("Tipo de Mapa Seleccionado: ", input$map_option)
+      
     })
+   
+    fluidRow(
+      box(
+        title = "Mapa Seleccionado", 
+        status = "info",  # Puedes cambiar el color de fondo
+        solidHeader = TRUE,  # Hace que el cuadro tenga un encabezado sólido
+        width = 12,  # Puedes ajustar el tamaño del cuadro
+        textOutput("Mapa_Seleccionado"),  # Mostrar el mensaje
+        headerBorder = FALSE,  # Quitar el borde del encabezado
+        tags$style(HTML('
+        
+        .box-header {
+          background-color: lightblue !important;
+          color: black !important;
+        }
+      ')), 
+        
+        
+      
+      # Cuadro con el mapa
+      column(
+        width = 8,  # Ancho del mapa
+        box(
+          title = paste("Tipo de Mapa Seleccionado: ", input$map_option), 
+          status = "info", 
+          solidHeader = TRUE, 
+          width = NULL,  # El ancho es flexible
+          leafletOutput("mapa")
+        )
+      ),
+      
+      # Cuadro con las estadísticas
+      if(input$map_option != "Religión" && input$map_option != "Servicios de Salud"  ){
+      box(
+        title = "Estadísticas de la variable", 
+        status = "primary", 
+        solidHeader = TRUE, 
+        width = 4,  # Ancho del cuadro de las estadísticas
+        DT::dataTableOutput("estadisticas")
+      )
+      }
+      # Cuadro con las estadísticas específicas de religión
+      else if(input$map_option == "Religión") {
+        column(
+          width = 12,
+          box(
+            title = "Estadísticas Católicas", 
+            status = "primary", 
+            solidHeader = TRUE, 
+            width = 4,  
+            DT::dataTableOutput("estadisticas_catolica")
+          ),
+          box(
+            title = "Estadísticas Protestantes", 
+            status = "primary", 
+            solidHeader = TRUE, 
+            width = 4,  
+            DT::dataTableOutput("estadisticas_protestante")
+          ),
+          box(
+            title = "Estadísticas Sin Religión", 
+            status = "primary", 
+            solidHeader = TRUE, 
+            width = 4,  
+            DT::dataTableOutput("estadisticas_sin_religion")
+          )
+          
+        )
+      }
+      
+      else if(input$map_option == "Servicios de Salud") {
+        column(
+          width = 12,
+          box(
+            title = "Estadísticas Issste", 
+            status = "primary", 
+            solidHeader = TRUE, 
+            width = 4,  
+            DT::dataTableOutput("estadisticas_isste")
+          ),
+          box(
+            title = "Estadísticas Imss", 
+            status = "primary", 
+            solidHeader = TRUE, 
+            width = 4,  
+            DT::dataTableOutput("estadisticas_imss")
+          ),
+          box(
+            title = "Estadísticas Sin servicio", 
+            status = "primary", 
+            solidHeader = TRUE, 
+            width = 4,  
+            DT::dataTableOutput("estadisticas_sin_servicio")
+          )
+          
+        )
+      }
+      )
+  
+      
+      
+      
     
-    # Renderizar el mapa de calor
-    leafletOutput("mapa")
+    )
   })
   
   # Renderizar la gráfica dependiendo de la opción seleccionada
@@ -117,12 +351,13 @@ server <- function(input, output, session) {
                     weight = 1, 
                     opacity = 1, 
                     fillOpacity = 0.7, 
-                    popup = ~paste("Población Total: ", POBTOT)) %>%
+                    popup = ~paste("Cuadra: ", ID,
+                                   "<br>Población Total: ", POBTOT)) %>%
         addLegend(pal = colorNumeric("YlOrRd", mapa_completo$POBTOT), 
                   values = mapa_completo$POBTOT, 
                   opacity = 0.7, 
                   title = "Población Total",
-                  position = "bottomright")
+                  position = "bottomleft")
     } else if (input$map_option == "Poblacion femenina") {
       mapa <- mapa %>%
         addPolygons(data = mapa_completo, 
@@ -131,12 +366,13 @@ server <- function(input, output, session) {
                     weight = 1, 
                     opacity = 1, 
                     fillOpacity = 0.7, 
-                    popup = ~paste("Población Femenina Total: ", POBFEM)) %>%
+                    popup = ~paste("Cuadra: ", ID,
+                                   "<br>Población Femenina Total: ", POBFEM)) %>%
         addLegend(pal = colorNumeric("YlOrRd", mapa_completo$POBFEM), 
                   values = mapa_completo$POBFEM, 
                   opacity = 0.7, 
                   title = "Población Femenina Total",
-                  position = "bottomright")
+                  position = "bottomleft")
     } else if (input$map_option == "Poblacion masculina") {
       mapa <- mapa %>%
         addPolygons(data = mapa_completo, 
@@ -145,13 +381,105 @@ server <- function(input, output, session) {
                     weight = 1, 
                     opacity = 1, 
                     fillOpacity = 0.7, 
-                    popup = ~paste("Población Masculina Total: ", POBMAS)) %>%
+                    popup = ~paste("Cuadra: ",ID,
+                                   "<br>Población Masculina Total: ", POBMAS)) %>%
         addLegend(pal = colorNumeric("YlOrRd", mapa_completo$POBMAS), 
                   values = mapa_completo$POBMAS, 
                   opacity = 0.7, 
                   title = "Población Masculina Total",
-                  position = "bottomright")
+                  position = "bottomleft")
     }
+    
+    else if (input$map_option == "Hombres por cada 100 mujeres") {
+      # Mapa de hombres por cada 100 mujeres
+      mapa <- mapa %>%
+        addPolygons(data = mapa_completo, 
+                    fillColor = ~colorNumeric("YlOrRd", mapa_completo$REL_H_M)(REL_H_M), 
+                    color = "black", 
+                    weight = 1, 
+                    opacity = 1, 
+                    fillOpacity = 0.7, 
+                    popup = ~paste("Colonia: ", ID, 
+                                   "<br>Hombres por cada 100 mujeres: ", REL_H_M)) %>%
+        addLegend(pal = colorNumeric("YlOrRd", mapa_completo$REL_H_M), 
+                  values = mapa_completo$REL_H_M, 
+                  opacity = 0.7, 
+                  title = "Hombres por cada 100 Mujeres",
+                  position = "bottomleft")
+    }
+    else if (input$map_option == "Religión") {
+      mapa <- mapa %>%
+        addPolygons(data = mapa_completo, 
+                    fillColor = ~colorNumeric("YlOrRd", mapa_completo$PCATOLICA)(PCATOLICA), 
+                    color = "black", 
+                    weight = 1, 
+                    opacity = 1, 
+                    fillOpacity = 0.7, 
+                    popup = ~paste("Colonia: ", ID,
+                                   "<br>Población Católica: ", PCATOLICA),
+                    group = "Católica") %>%
+        addPolygons(data = mapa_completo, 
+                    fillColor = ~colorNumeric("YlOrRd", mapa_completo$PRO_CRIEVA)(PRO_CRIEVA), 
+                    color = "black", 
+                    weight = 1, 
+                    opacity = 1, 
+                    fillOpacity = 0.7, 
+                    popup = ~paste("Colonia: ", ID,
+                                   "<br>Población Protestante: ", PRO_CRIEVA),
+                    group = "Protestante") %>%
+        addPolygons(data = mapa_completo, 
+                    fillColor = ~colorNumeric("YlOrRd", mapa_completo$PSIN_RELIG)(PSIN_RELIG), 
+                    color = "black", 
+                    weight = 1, 
+                    opacity = 1, 
+                    fillOpacity = 0.7, 
+                    popup = ~paste("Colonia: ", ID,
+                                   "<br>Población Sin Religión: ", PSIN_RELIG),
+                    group = "Sin Religión") %>%
+        addLayersControl(
+          overlayGroups = c("Católica", "Protestante", "Sin Religión"),
+          options = layersControlOptions(collapsed = FALSE)
+        )
+      
+    }
+    
+    else if (input$map_option == "Servicios de Salud") {
+      mapa <- mapa %>%
+        addPolygons(data = mapa_completo, 
+                    fillColor = ~colorNumeric("YlOrRd", mapa_completo$PDER_ISTE)(PDER_ISTE), 
+                    color = "black", 
+                    weight = 1, 
+                    opacity = 1, 
+                    fillOpacity = 0.7, 
+                    popup = ~paste("Colonia: ", ID,
+                                   "<br>Población con Issste: ", PDER_ISTE),
+                    group = "ISSSTE") %>%
+        addPolygons(data = mapa_completo, 
+                    fillColor = ~colorNumeric("YlOrRd", mapa_completo$PDER_IMSS)(PDER_IMSS), 
+                    color = "black", 
+                    weight = 1, 
+                    opacity = 1, 
+                    fillOpacity = 0.7, 
+                    popup = ~paste("Colonia: ", ID,
+                                   "<br>Población con Imss: ", PDER_IMSS),
+                    group = "IMSS") %>%
+        addPolygons(data = mapa_completo, 
+                    fillColor = ~colorNumeric("YlOrRd", mapa_completo$PSINDER)(PSINDER), 
+                    color = "black", 
+                    weight = 1, 
+                    opacity = 1, 
+                    fillOpacity = 0.7, 
+                    popup = ~paste("Colonia: ", ID,
+                                   "<br>Población Sin Servicio a Salud: ", PSINDER),
+                    group = "Sin Servicio") %>%
+        addLayersControl(
+          overlayGroups = c("ISSSTE", "IMSS", "Sin Servicio"),
+          options = layersControlOptions(collapsed = FALSE)
+        )
+      
+    }
+    
+    
     
     mapa
   })
