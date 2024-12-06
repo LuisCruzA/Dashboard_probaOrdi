@@ -95,8 +95,8 @@ server <- function(input, output, session) {
                                 "Poblacion femenina" = mapa_completo$POBFEM,
                                 "Poblacion masculina" = mapa_completo$POBMAS,
                                 "Hombres por cada 100 mujeres" = mapa_completo$REL_H_M,
-                                "Religión" = "",
-                                "Servicios de Salud" = "")
+                                "Religión" = 0,
+                                "Servicios de Salud" = 0)
                                 
     
     # Calcular estadísticas
@@ -446,7 +446,7 @@ server <- function(input, output, session) {
     else if (input$map_option == "Servicios de Salud") {
       mapa <- mapa %>%
         addPolygons(data = mapa_completo, 
-                    fillColor = ~colorNumeric("YlOrRd", mapa_completo$PDER_ISTE)(PDER_ISTE), 
+                    fillColor = ~colorNumeric("BuGn", mapa_completo$PDER_ISTE)(PDER_ISTE), 
                     color = "black", 
                     weight = 1, 
                     opacity = 1, 
@@ -455,7 +455,7 @@ server <- function(input, output, session) {
                                    "<br>Población con Issste: ", PDER_ISTE),
                     group = "ISSSTE") %>%
         addPolygons(data = mapa_completo, 
-                    fillColor = ~colorNumeric("YlOrRd", mapa_completo$PDER_IMSS)(PDER_IMSS), 
+                    fillColor = ~colorNumeric("PuBu", mapa_completo$PDER_IMSS)(PDER_IMSS), 
                     color = "black", 
                     weight = 1, 
                     opacity = 1, 
